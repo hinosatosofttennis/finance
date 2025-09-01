@@ -1,5 +1,3 @@
-# ファイル名: app.py
-
 # 必要なライブラリをインポート
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -7,6 +5,8 @@ import yfinance as yf
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
+import time
+import random
 
 # Flaskアプリケーションを作成
 app = Flask(__name__)
@@ -18,45 +18,57 @@ CORS(app)
 def health_check():
     return jsonify({"status": "OK", "message": "Stock data server is running."})
 
-def get_japanese_name(ticker_symbol_with_suffix):
+def get_japanese_name_from_yahoo_jp(ticker_with_suffix):
     """
-    Yahoo!ファイナンスのページをスクレイピングして日本語の銘柄名を取得する
+    ユーザー提案の改良版スクレイピングロジック
     """
     try:
-        url = f"https://finance.yahoo.co.jp/quote/{ticker_symbol_with_suffix}"
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
-        response = requests.get(url, headers=headers, timeout=10)
+        url = f"https://finance.yahoo.co.jp/quote/{ticker_with_suffix}"
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
+        }
+        
+        # 短いランダム待機
+        time.sleep(random.uniform(0.5, 1.5))
+        
+        response = requests.get(url, headers=headers, timeout=15)
         response.raise_for_status()
         
         soup = BeautifulSoup(response.content, 'html.parser')
-        name_element = soup.select_one('h1[class*="_1fjd15b0"]')
         
-        if name_element:
-            return name_element.text.strip()
-        return None
+        # 複数のセレクターパターンを試す
+        selectors = [
+            'h1[class*="_1fjd15b0"]',
+            'h1[class*="symbol"]',
+            'h1' 
+        ]
+        
+        for selector in selectors:
+            element = soup.select_one(selector)
+            if element:
+                text = element.get_text(strip=True)
+                # 日本語が含まれているかチェック
+                if any('\u3040' <= char <= '\u9FAF' for char in text):
+                    return text
+                    
     except Exception as e:
-        print(f"Could not scrape Japanese name for {ticker_symbol_with_suffix}: {e}")
-        return None
+        print(f"Scraping failed for {ticker_with_suffix}: {e}")
+    
+    return None
 
 def format_yen(value):
     """数値を億円・兆円単位の文字列にフォーマットする"""
-    if value is None or not isinstance(value, (int, float)):
-        return '---'
-    if abs(value) >= 1000000000000:
-        return f"{(value / 1000000000000):,.2f} 兆円"
-    else:
-        return f"{(value / 100000000):,.2f} 億円"
+    if not isinstance(value, (int, float)): return '---'
+    if abs(value) >= 1000000000000: return f"{(value / 1000000000000):,.2f} 兆円"
+    return f"{(value / 100000000):,.2f} 億円"
 
 def get_stock_data(ticker_symbol):
     """
     証券コードを元に企業データを取得する関数
     """
-    # ★★★ ここから修正箇所 ★★★
-    # 検索対象とする市場の識別子リスト (優先順位順)
-    exchanges = ['.T', '.F', '.S', '.N'] 
-    stock_info = None
-    stock_obj = None
-    successful_ticker = None
+    exchanges = ['.T', '.F', '.S', '.N'] # 東証, 福証, 札証, 名証
+    stock_info, stock_obj, successful_ticker = None, None, None
 
     for suffix in exchanges:
         try:
@@ -64,31 +76,23 @@ def get_stock_data(ticker_symbol):
             temp_stock = yf.Ticker(ticker_with_suffix)
             temp_info = temp_stock.info
             
-            # データが有効かどうかのチェック
             if temp_info and temp_info.get('regularMarketPrice') is not None:
-                stock_info = temp_info
-                stock_obj = temp_stock
-                successful_ticker = ticker_with_suffix
-                print(f"Found data for {successful_ticker}")
-                break # データが見つかったのでループを抜ける
+                stock_info, stock_obj, successful_ticker = temp_info, temp_stock, ticker_with_suffix
+                break
         except Exception:
-            continue # エラーが出たら次の市場を試す
+            continue
 
-    # どの市場でもデータが見つからなかった場合
     if not stock_info:
-        raise Exception(f"対応市場（東証, 福証, 札証, 名証）で株価情報が見つかりませんでした")
-    # ★★★ 修正ここまで ★★★
+        raise Exception("対応市場で株価情報が見つかりませんでした")
 
-    japanese_name = get_japanese_name(successful_ticker)
+    # 改良版の関数で日本語銘柄名を取得
+    japanese_name = get_japanese_name_from_yahoo_jp(successful_ticker)
     
     try:
         income_stmt = stock_obj.income_stmt
-        if not income_stmt.empty:
-            pretax_income = income_stmt.loc['Pretax Income'].iloc[0] if 'Pretax Income' in income_stmt.index else None
-            net_income = income_stmt.loc['Net Income'].iloc[0] if 'Net Income' in income_stmt.index else None
-            latest_sales = income_stmt.loc['Total Revenue'].iloc[0] if 'Total Revenue' in income_stmt.index else None
-        else:
-            pretax_income, net_income, latest_sales = None, None, None
+        pretax_income = income_stmt.loc['Pretax Income'].iloc[0] if not income_stmt.empty and 'Pretax Income' in income_stmt.index else None
+        net_income = income_stmt.loc['Net Income'].iloc[0] if not income_stmt.empty and 'Net Income' in income_stmt.index else None
+        latest_sales = income_stmt.loc['Total Revenue'].iloc[0] if not income_stmt.empty and 'Total Revenue' in income_stmt.index else None
     except Exception:
         pretax_income, net_income, latest_sales = None, None, None
     
@@ -98,7 +102,7 @@ def get_stock_data(ticker_symbol):
     data = {
         'companyName': japanese_name or stock_info.get('longName', '---'),
         'code': ticker_symbol,
-        'market': stock_info.get('exchange', '---').replace('JPX', '東証').replace('FSE', '福証'),
+        'market': stock_info.get('exchange', '').replace('JPX', '東証').replace('FSE', '福証').replace('SSE', '札証').replace('NAG', '名証'),
         'price': f"{stock_info.get('currentPrice', 0):,}",
         'marketCap': format_yen(stock_info.get('marketCap')),
         'pretaxIncome': format_yen(pretax_income),
@@ -122,5 +126,4 @@ def stock_data_endpoint():
         data = get_stock_data(code)
         return jsonify(data)
     except Exception as e:
-        print(f"Error processing data for {code}: {e}")
         return jsonify({"error": str(e), "code": code}), 500
