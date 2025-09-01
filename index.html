@@ -91,7 +91,7 @@
 
     <div class="controls-container">
         <div id="sheet-tabs"></div>
-        <textarea id="company-input" placeholder="証券コードを改行またはカンマ区切りで入力 (1シート10件まで)"></textarea>
+        <textarea id="company-input" placeholder="証券コードを改行・スペース・カンマ区切りで入力 (1シート10件まで)"></textarea>
         <div class="button-group">
             <button id="save-button">💾 現在のリストを保存</button>
             <button id="search-button">🔄 再検索</button>
@@ -136,7 +136,6 @@
             if (savedNames) {
                 sheetNames = JSON.parse(savedNames);
             } else {
-                // デフォルトのシート名を作成
                 sheetNames = Array.from({ length: TOTAL_SHEETS }, (_, i) => `シート${i + 1}`);
             }
         }
@@ -151,7 +150,6 @@
             tab.textContent = sheetNames[sheetId - 1];
             tab.dataset.sheetId = sheetId;
             tab.onclick = () => switchSheet(sheetId);
-            // ダブルクリックで名前編集
             tab.ondblclick = () => editSheetName(tab, sheetId);
             sheetTabsContainer.appendChild(tab);
         }
@@ -166,7 +164,7 @@
             input.onkeydown = (e) => {
                 if (e.key === 'Enter') input.blur();
                 if (e.key === 'Escape') {
-                    tab.textContent = oldName; // 編集をキャンセル
+                    tab.textContent = oldName;
                 }
             };
 
@@ -182,7 +180,7 @@
                 tab.textContent = newName;
                 saveSheetNames();
             } else {
-                tab.textContent = oldName; // 空の場合は元に戻す
+                tab.textContent = oldName;
             }
         }
 
@@ -198,7 +196,8 @@
 
         function saveCurrentSheet() {
             const rawInput = companyInput.value.trim();
-            const codes = [...new Set(rawInput.split(/[,\s\n]+/).filter(code => /^\d{4}$/.test(code)))];
+            // ★★★ ここを修正 ★★★
+            const codes = [...new Set(rawInput.split(/[,\s\n　]+/).filter(code => /^\d{4}$/.test(code)))];
 
             if (codes.length > 10) {
                 alert('1シートに登録できる銘柄は10件までです。'); return;
@@ -212,7 +211,8 @@
             if (!rawInput) {
                 tableHead.innerHTML = ''; tableBody.innerHTML = ''; return;
             }
-            const codes = [...new Set(rawInput.split(/[,\s\n]+/).filter(code => /^\d{4}$/.test(code)))];
+            // ★★★ ここを修正 ★★★
+            const codes = [...new Set(rawInput.split(/[,\s\n　]+/).filter(code => /^\d{4}$/.test(code)))];
             if (codes.length === 0) {
                 tableHead.innerHTML = '';
                 tableBody.innerHTML = `<tr><td colspan="13" style="text-align:center;">有効な証券コードがありません。</td></tr>`;
