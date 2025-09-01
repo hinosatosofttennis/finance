@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>企業データ検索 (Yahoo!ファイナンス)</title>
+    <title>企業データ検索 (Render)</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -120,10 +120,8 @@
         const loader = document.getElementById('loader');
         const errorMessage = document.getElementById('error-message');
         
-        // 検索ボタンクリック時の処理
         searchButton.addEventListener('click', searchCompany);
         
-        // Enterキーでも検索できるようにする
         companyInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 searchCompany();
@@ -137,13 +135,13 @@
                 return;
             }
 
-            // 表示をリセット
             resultsContainer.innerHTML = '';
             errorMessage.style.display = 'none';
             loader.style.display = 'block';
 
             try {
-                // app.pyで起動したローカルサーバーに問い合わせる
+                // TODO: ここをあなたのRenderのURLに書き換えてください
+                const serviceUrl = 'https://your-service-name.onrender.com';
                 const response = await fetch(`https://finance-1-wf97.onrender.com/stock-data?code=${code}`);
                 const data = await response.json();
 
@@ -151,7 +149,6 @@
                     throw new Error(data.error || '不明なエラーが発生しました');
                 }
                 
-                // 取得したデータを元に画面表示を生成
                 displayData(data);
 
             } catch (error) {
@@ -199,7 +196,6 @@
                     </div>
                 </div>
             `;
-            // 検索結果をコンテナに追加（複数の会社を検索する場合は`+=`にする）
             resultsContainer.innerHTML = card;
         }
     </script>
