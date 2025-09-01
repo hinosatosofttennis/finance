@@ -3,3 +3,5 @@ Flask-Cors
 yfinance
 pandas
 gunicorn
+requests
+beautifulsoup4
