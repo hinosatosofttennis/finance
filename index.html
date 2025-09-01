@@ -144,7 +144,7 @@
 
             try {
                 // app.pyで起動したローカルサーバーに問い合わせる
-                const response = await fetch(`http://127.0.0.1:5000/stock-data?code=${code}`);
+                const response = await fetch(`https://finance-1-wf97.onrender.com/stock-data?code=${code}`);
                 const data = await response.json();
 
                 if (response.status !== 200 || data.error) {
