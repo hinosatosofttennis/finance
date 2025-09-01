@@ -1,3 +1,5 @@
+# ファイル名: app.py
+
 # 必要なライブラリをインポート
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -20,7 +22,7 @@ def health_check():
 
 def get_japanese_name_from_yahoo_jp(ticker_with_suffix):
     """
-    ユーザー提案の改良版スクレイピングロジック
+    Yahoo!ファイナンスから日本語の銘柄名を取得する
     """
     try:
         url = f"https://finance.yahoo.co.jp/quote/{ticker_with_suffix}"
@@ -28,29 +30,26 @@ def get_japanese_name_from_yahoo_jp(ticker_with_suffix):
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
         }
-        
-        # 短いランダム待機
         time.sleep(random.uniform(0.5, 1.5))
-        
         response = requests.get(url, headers=headers, timeout=15)
         response.raise_for_status()
         
         soup = BeautifulSoup(response.content, 'html.parser')
         
-        # 複数のセレクターパターンを試す
-        selectors = [
-            'h1[class*="_1fjd15b0"]',
-            'h1[class*="symbol"]',
-            'h1' 
-        ]
+        selectors = ['h1[class*="_1fjd15b0"]', 'h1[class*="symbol"]', 'h1']
         
         for selector in selectors:
             element = soup.select_one(selector)
             if element:
                 text = element.get_text(strip=True)
-                # 日本語が含まれているかチェック
                 if any('\u3040' <= char <= '\u9FAF' for char in text):
+                    # --- ★★★ ここから修正箇所 ★★★ ---
+                    # "の株価・株式情報" という末尾の文字列が含まれていれば、それを取り除く
+                    suffix_to_remove = "の株価・株式情報"
+                    if text.endswith(suffix_to_remove):
+                        return text[:-len(suffix_to_remove)].strip()
                     return text
+                    # --- ★★★ 修正ここまで ★★★ ---
                     
     except Exception as e:
         print(f"Scraping failed for {ticker_with_suffix}: {e}")
@@ -85,7 +84,6 @@ def get_stock_data(ticker_symbol):
     if not stock_info:
         raise Exception("対応市場で株価情報が見つかりませんでした")
 
-    # 改良版の関数で日本語銘柄名を取得
     japanese_name = get_japanese_name_from_yahoo_jp(successful_ticker)
     
     try:
