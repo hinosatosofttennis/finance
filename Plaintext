@@ -1,0 +1,6 @@
+# ファイル名: requirements.txt
+Flask
+Flask-Cors
+yfinance
+pandas
+gunicorn
