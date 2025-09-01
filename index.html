@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>企業データ検索</title>
+    <style>
+        /* スマートフォン向けの基本デザイン */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 15px;
+            background-color: #f4f4f9;
+        }
+        h1 {
+            font-size: 1.5em;
+            text-align: center;
+            color: #333;
+        }
+        #search-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        #company-input {
+            flex-grow: 1;
+            padding: 10px;
+            font-size: 1em;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        #search-button {
+            padding: 10px 15px;
+            font-size: 1em;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .company-card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .company-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+        .company-name {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        .company-code {
+            font-size: 0.9em;
+            color: #555;
+            background-color: #eee;
+            padding: 3px 6px;
+            border-radius: 3px;
+        }
+        .price {
+            font-size: 1.8em;
+            font-weight: bold;
+            text-align: right;
+            margin-bottom: 15px;
+        }
+        .data-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 0.9em;
+        }
+        .data-item {
+            background-color: #f9f9f9;
+            padding: 8px;
+            border-radius: 4px;
+        }
+        .data-label {
+            font-weight: bold;
+            color: #333;
+            display: block;
+            margin-bottom: 3px;
+        }
+        .data-value {
+            color: #0056b3;
+            font-weight: 500;
+        }
+        #loader {
+            text-align: center;
+            display: none; /* 初期状態では非表示 */
+        }
+    </style>
+</head>
+<body>
+
+    <h1>企業データ検索</h1>
+
+    <div id="search-container">
+        <input type="text" id="company-input" placeholder="会社名や証券コードを入力 (例: トヨタ)">
+        <button id="search-button">検索</button>
+    </div>
+
+    <div id="loader">検索中...</div>
+    <div id="results-container"></div>
+
+    <script>
+        // --- 設定項目 ---
+        // TODO: ここにあなた自身のAlpha Vantage APIキーを設定してください
+        const API_KEY = 'YOUR_API_KEY'; 
+
+        const searchButton = document.getElementById('search-button');
+        const companyInput = document.getElementById('company-input');
+        const resultsContainer = document.getElementById('results-container');
+        const loader = document.getElementById('loader');
+
+        searchButton.addEventListener('click', searchCompany);
+        companyInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchCompany();
+            }
+        });
+
+        async function searchCompany() {
+            const query = companyInput.value.trim();
+            if (!query) {
+                alert('会社名または証券コードを入力してください。');
+                return;
+            }
+
+            resultsContainer.innerHTML = ''; // 前回の結果をクリア
+            loader.style.display = 'block'; // ローディング表示
+
+            try {
+                // Alpha Vantage APIを使用してキーワードから企業を検索
+                // 日本市場に限定したい場合は、APIの仕様を確認してください。
+                const searchUrl = `https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords=${query}&apikey=${API_KEY}`;
+                const searchResponse = await fetch(searchUrl);
+                const searchData = await searchResponse.json();
+
+                // 検索結果の中から日本の市場（TYO）のものをフィルタリング
+                const japaneseResults = searchData.bestMatches.filter(match => match['4. region'] === 'Japan');
+
+                if (japaneseResults.length === 0) {
+                    resultsContainer.innerHTML = '<p>該当する日本の会社が見つかりませんでした。</p>';
+                    return;
+                }
+
+                // 複数の候補を並列で処理
+                const companyPromises = japaneseResults.map(company => fetchCompanyData(company));
+                await Promise.all(companyPromises);
+
+            } catch (error) {
+                console.error('Error:', error);
+                resultsContainer.innerHTML = '<p>データの取得中にエラーが発生しました。</p>';
+            } finally {
+                loader.style.display = 'none'; // ローディング非表示
+            }
+        }
+
+        async function fetchCompanyData(companyInfo) {
+            const symbol = companyInfo['1. symbol']; // 証券コード (例: 7203.T)
+
+            // APIから複数の情報を並行して取得
+            const overviewPromise = fetch(`https://www.alphavantage.co/query?function=OVERVIEW&symbol=${symbol}&apikey=${API_KEY}`).then(res => res.json());
+            const quotePromise = fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${API_KEY}`).then(res => res.json());
+
+            const [overview, quoteData] = await Promise.all([overviewPromise, quotePromise]);
+            const quote = quoteData['Global Quote'];
+
+            // 取得したデータを表示
+            displayData(overview, quote);
+        }
+
+        function displayData(overview, quote) {
+            // データが存在しない場合のデフォルト値
+            const na = '---';
+
+            // 必要なデータを抽出
+            const companyName = overview.Name || na;
+            const ticker = overview.Symbol || na;
+            const market = overview.Exchange ? overview.Exchange.replace('TYO', '東証') : na;
+            const price = quote ? parseFloat(quote['05. price']).toLocaleString() : na;
+            const sales = overview.RevenueTTM ? (parseInt(overview.RevenueTTM) / 100000000).toFixed(2) + ' 億円' : na;
+            const eps = overview.EPS || na;
+            const dividend = overview.DividendPerShare || na;
+            const dividendYield = overview.DividendYield ? (parseFloat(overview.DividendYield) * 100).toFixed(2) + ' %' : na;
+            const pbr = overview.PriceToBookRatio || na;
+            const roe = overview.ReturnOnEquityTTM ? (parseFloat(overview.ReturnOnEquityTTM) * 100).toFixed(2) + ' %' : na;
+            const bps = overview.BookValuePerShare || na;
+
+            // HTMLカードを生成
+            const card = `
+                <div class="company-card">
+                    <div class="company-header">
+                        <span class="company-name">${companyName}</span>
+                        <span class="company-code">${ticker} (${market})</span>
+                    </div>
+                    <div class="price">¥ ${price}</div>
+                    <div class="data-grid">
+                        <div class="data-item">
+                            <span class="data-label">売上高 (TTM)</span>
+                            <span class="data-value">${sales}</span>
+                        </div>
+                        <div class="data-item">
+                            <span class="data-label">EPS (一株利益)</span>
+                            <span class="data-value">${eps}</span>
+                        </div>
+                        <div class="data-item">
+                            <span class="data-label">BPS (一株純資産)</span>
+                            <span class="data-value">${bps}</span>
+                        </div>
+                        <div class="data-item">
+                            <span class="data-label">ROE</span>
+                            <span class="data-value">${roe}</span>
+                        </div>
+                         <div class="data-item">
+                            <span class="data-label">PBR</span>
+                            <span class="data-value">${pbr}</span>
+                        </div>
+                        <div class="data-item">
+                            <span class="data-label">配当利回り</span>
+                            <span class="data-value">${dividendYield}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            // 注意: APIでは直近の経常利益や来期予想の直接的な取得が難しい場合があります。
+            // 売上高はTTM(Trailing Twelve Months/過去12ヶ月)の値を表示しています。
+
+            resultsContainer.innerHTML += card;
+        }
+    </script>
+</body>
+</html>
