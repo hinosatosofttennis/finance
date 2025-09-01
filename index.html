@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>企業データ検索 (Render)</title>
+    <title>企業データ検索リスト</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -17,186 +17,170 @@
             color: #333;
         }
         #search-container {
-            display: flex;
-            gap: 10px;
             margin-bottom: 20px;
         }
         #company-input {
-            flex-grow: 1;
+            width: 100%;
+            box-sizing: border-box;
             padding: 10px;
             font-size: 1em;
             border: 1px solid #ccc;
             border-radius: 5px;
-            -webkit-appearance: none; /* iOSでの見た目をリセット */
+            min-height: 80px;
         }
         #search-button {
-            padding: 10px 15px;
-            font-size: 1em;
+            width: 100%;
+            padding: 12px 15px;
+            font-size: 1.1em;
             background-color: #007bff;
             color: white;
             border: none;
             border-radius: 5px;
             cursor: pointer;
+            margin-top: 10px;
         }
-        .company-card {
+        #loader { text-align: center; display: none; }
+        .table-container {
+            overflow-x: auto; /* スマホで横スクロール可能にする */
             background-color: white;
             border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 15px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        .company-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        #results-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8em;
+        }
+        #results-table th, #results-table td {
+            padding: 10px;
+            text-align: left;
             border-bottom: 1px solid #eee;
-            padding-bottom: 10px;
-            margin-bottom: 10px;
+            white-space: nowrap; /* 折り返しを防ぐ */
         }
-        .company-name {
-            font-size: 1.2em;
+        #results-table th {
+            background-color: #f8f9fa;
             font-weight: bold;
         }
-        .company-code {
-            font-size: 0.9em;
-            color: #555;
-            background-color: #eee;
-            padding: 3px 6px;
-            border-radius: 3px;
-            white-space: nowrap;
+        #results-table td:first-child, #results-table th:first-child {
+            position: sticky; /* 銘柄名をスクロールしても固定 */
+            left: 0;
+            background-color: white;
+            border-right: 1px solid #eee;
         }
-        .price {
-            font-size: 1.8em;
-            font-weight: bold;
-            text-align: right;
-            margin-bottom: 15px;
-        }
-        .data-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            font-size: 0.9em;
-        }
-        .data-item {
-            background-color: #f9f9f9;
-            padding: 8px;
-            border-radius: 4px;
-        }
-        .data-label {
-            font-weight: bold;
-            color: #333;
-            display: block;
-            margin-bottom: 3px;
-        }
-        .data-value {
-            color: #0056b3;
-            font-weight: 500;
-        }
-        #loader, #error-message {
+        #results-table th:first-child { background-color: #f8f9fa; }
+        .error-row td {
+            color: red;
             text-align: center;
-            padding: 20px;
-            color: #555;
-            display: none; /* 初期状態では非表示 */
         }
     </style>
 </head>
 <body>
 
-    <h1>企業データ検索</h1>
+    <h1>企業データ リスト検索</h1>
 
     <div id="search-container">
-        <input type="number" id="company-input" placeholder="証券コード4桁で入力 (例: 7203)">
+        <textarea id="company-input" placeholder="証券コードを改行またはカンマ区切りで入力&#10;(例)&#10;7203&#10;9984, 6758"></textarea>
         <button id="search-button">検索</button>
     </div>
 
     <div id="loader">検索中...</div>
-    <div id="error-message"></div>
-    <div id="results-container"></div>
+    
+    <div class="table-container">
+        <table id="results-table">
+            <thead></thead>
+            <tbody></tbody>
+        </table>
+    </div>
 
     <script>
         const searchButton = document.getElementById('search-button');
         const companyInput = document.getElementById('company-input');
-        const resultsContainer = document.getElementById('results-container');
+        const tableHead = document.querySelector('#results-table thead');
+        const tableBody = document.querySelector('#results-table tbody');
         const loader = document.getElementById('loader');
-        const errorMessage = document.getElementById('error-message');
         
-        searchButton.addEventListener('click', searchCompany);
+        searchButton.addEventListener('click', searchCompanies);
         
-        companyInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                searchCompany();
+        async function searchCompanies() {
+            const rawInput = companyInput.value.trim();
+            if (!rawInput) {
+                alert('証券コードを入力してください。');
+                return;
             }
-        });
+            // 改行とカンマで分割し、重複を除外
+            const codes = [...new Set(rawInput.split(/[,\s\n]+/).filter(code => /^\d{4}$/.test(code)))];
 
-        async function searchCompany() {
-            const code = companyInput.value.trim();
-            if (!/^\d{4}$/.test(code)) {
-                alert('4桁の証券コードを正しく入力してください。');
+            if (codes.length === 0) {
+                alert('有効な4桁の証券コードが見つかりません。');
                 return;
             }
 
-            resultsContainer.innerHTML = '';
-            errorMessage.style.display = 'none';
             loader.style.display = 'block';
+            tableHead.innerHTML = '';
+            tableBody.innerHTML = '';
 
-            try {
-                // TODO: ここをあなたのRenderのURLに書き換えてください
-                const serviceUrl = 'https://your-service-name.onrender.com';
-                const response = await fetch(`https://finance-1-wf97.onrender.com/stock-data?code=${code}`);
-                const data = await response.json();
-
-                if (response.status !== 200 || data.error) {
-                    throw new Error(data.error || '不明なエラーが発生しました');
-                }
-                
-                displayData(data);
-
-            } catch (error) {
-                console.error('Error:', error);
-                errorMessage.innerText = `エラー: ${error.message}`;
-                errorMessage.style.display = 'block';
-            } finally {
-                loader.style.display = 'none';
-            }
+            const serviceUrl = 'https://finance-1-wf97.onrender.com'; // TODO: あなたのRender URLに書き換えてください
+            
+            // 全ての証券コードのデータ取得を並行して実行
+            const promises = codes.map(code => 
+                fetch(`${serviceUrl}/stock-data?code=${code}`)
+                    .then(res => res.json())
+                    .catch(err => ({error: `ネットワークエラー(${code})`, code}))
+            );
+            
+            const results = await Promise.all(promises);
+            
+            loader.style.display = 'none';
+            displayTable(results);
         }
 
-        function displayData(data) {
-            const card = `
-                <div class="company-card">
-                    <div class="company-header">
-                        <span class="company-name">${data.companyName}</span>
-                        <span class="company-code">${data.code} (${data.market})</span>
-                    </div>
-                    <div class="price">¥ ${data.price}</div>
-                    <div class="data-grid">
-                        <div class="data-item">
-                            <span class="data-label">売上高 (直近)</span>
-                            <span class="data-value">${data.sales_latest}</span>
-                        </div>
-                        <div class="data-item">
-                            <span class="data-label">EPS (一株利益)</span>
-                            <span class="data-value">${data.eps}</span>
-                        </div>
-                        <div class="data-item">
-                            <span class="data-label">BPS (一株純資産)</span>
-                            <span class="data-value">${data.bps}</span>
-                        </div>
-                        <div class="data-item">
-                            <span class="data-label">ROE</span>
-                            <span class="data-value">${data.roe}</span>
-                        </div>
-                         <div class="data-item">
-                            <span class="data-label">PBR</span>
-                            <span class="data-value">${data.pbr}</span>
-                        </div>
-                        <div class="data-item">
-                            <span class="data-label">配当利回り</span>
-                            <span class="data-value">${data.dividendYield}</span>
-                        </div>
-                    </div>
-                </div>
+        function displayTable(results) {
+            if (results.length === 0) return;
+
+            // 表のヘッダーを作成
+            tableHead.innerHTML = `
+                <tr>
+                    <th>銘柄名</th>
+                    <th>コード</th>
+                    <th>市場</th>
+                    <th>株価(円)</th>
+                    <th>時価総額</th>
+                    <th>売上高</th>
+                    <th>税引前利益</th>
+                    <th>当期利益</th>
+                    <th>EPS</th>
+                    <th>BPS</th>
+                    <th>PBR</th>
+                    <th>ROE(%)</th>
+                    <th>配当利回り</th>
+                </tr>
             `;
-            resultsContainer.innerHTML = card;
+            
+            // 結果を一行ずつ表に追加
+            results.forEach(data => {
+                const row = document.createElement('tr');
+                if (data.error) {
+                    row.classList.add('error-row');
+                    row.innerHTML = `<td colspan="13">コード: ${data.code} - ${data.error}</td>`;
+                } else {
+                    row.innerHTML = `
+                        <td>${data.companyName}</td>
+                        <td>${data.code}</td>
+                        <td>${data.market}</td>
+                        <td>${data.price}</td>
+                        <td>${data.marketCap}</td>
+                        <td>${data.sales_latest}</td>
+                        <td>${data.pretaxIncome}</td>
+                        <td>${data.netIncome}</td>
+                        <td>${data.eps}</td>
+                        <td>${data.bps}</td>
+                        <td>${data.pbr}</td>
+                        <td>${data.roe}</td>
+                        <td>${data.dividendYield}</td>
+                    `;
+                }
+                tableBody.appendChild(row);
+            });
         }
     </script>
 </body>
