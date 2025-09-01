@@ -6,7 +6,8 @@
     <title>企業データ検索リスト</title>
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            /* フォントをメイリオに統一 */
+            font-family: 'Meiryo', 'メイリオ', sans-serif;
             margin: 0;
             padding: 15px;
             background-color: #f4f4f9;
@@ -27,6 +28,7 @@
             border: 1px solid #ccc;
             border-radius: 5px;
             min-height: 80px;
+            font-family: 'Meiryo', 'メイリオ', sans-serif; /* 入力欄のフォントも指定 */
         }
         #search-button {
             width: 100%;
@@ -41,7 +43,7 @@
         }
         #loader { text-align: center; display: none; }
         .table-container {
-            overflow-x: auto; /* スマホで横スクロール可能にする */
+            overflow-x: auto;
             background-color: white;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -53,25 +55,34 @@
         }
         #results-table th, #results-table td {
             padding: 10px;
-            text-align: left;
             border-bottom: 1px solid #eee;
-            white-space: nowrap; /* 折り返しを防ぐ */
+            white-space: nowrap;
         }
         #results-table th {
             background-color: #f8f9fa;
             font-weight: bold;
         }
         #results-table td:first-child, #results-table th:first-child {
-            position: sticky; /* 銘柄名をスクロールしても固定 */
+            position: sticky;
             left: 0;
             background-color: white;
             border-right: 1px solid #eee;
         }
         #results-table th:first-child { background-color: #f8f9fa; }
+        
+        /* --- ここから追加・修正 --- */
+        .align-left {
+            text-align: left;
+        }
+        .align-right {
+            text-align: right;
+        }
         .error-row td {
             color: red;
             text-align: center;
         }
+        /* --- ここまで --- */
+
     </style>
 </head>
 <body>
@@ -103,25 +114,16 @@
         
         async function searchCompanies() {
             const rawInput = companyInput.value.trim();
-            if (!rawInput) {
-                alert('証券コードを入力してください。');
-                return;
-            }
-            // 改行とカンマで分割し、重複を除外
+            if (!rawInput) { alert('証券コードを入力してください。'); return; }
             const codes = [...new Set(rawInput.split(/[,\s\n]+/).filter(code => /^\d{4}$/.test(code)))];
-
-            if (codes.length === 0) {
-                alert('有効な4桁の証券コードが見つかりません。');
-                return;
-            }
+            if (codes.length === 0) { alert('有効な4桁の証券コードが見つかりません。'); return; }
 
             loader.style.display = 'block';
             tableHead.innerHTML = '';
             tableBody.innerHTML = '';
 
-            const serviceUrl = 'https://finance-1-wf97.onrender.com'; // TODO: あなたのRender URLに書き換えてください
+            const serviceUrl = 'https://your-service-name.onrender.com'; // TODO: あなたのRender URLに書き換えてください
             
-            // 全ての証券コードのデータ取得を並行して実行
             const promises = codes.map(code => 
                 fetch(`${serviceUrl}/stock-data?code=${code}`)
                     .then(res => res.json())
@@ -129,7 +131,6 @@
             );
             
             const results = await Promise.all(promises);
-            
             loader.style.display = 'none';
             displayTable(results);
         }
@@ -137,26 +138,24 @@
         function displayTable(results) {
             if (results.length === 0) return;
 
-            // 表のヘッダーを作成
             tableHead.innerHTML = `
                 <tr>
-                    <th>銘柄名</th>
-                    <th>コード</th>
-                    <th>市場</th>
-                    <th>株価(円)</th>
-                    <th>時価総額</th>
-                    <th>売上高</th>
-                    <th>税引前利益</th>
-                    <th>当期利益</th>
-                    <th>EPS</th>
-                    <th>BPS</th>
-                    <th>PBR</th>
-                    <th>ROE(%)</th>
-                    <th>配当利回り</th>
+                    <th class="align-left">銘柄名</th>
+                    <th class="align-left">コード</th>
+                    <th class="align-left">市場</th>
+                    <th class="align-right">株価(円)</th>
+                    <th class="align-right">時価総額</th>
+                    <th class="align-right">売上高</th>
+                    <th class="align-right">税引前利益</th>
+                    <th class="align-right">当期利益</th>
+                    <th class="align-right">EPS</th>
+                    <th class="align-right">BPS</th>
+                    <th class="align-right">PBR</th>
+                    <th class="align-right">ROE(%)</th>
+                    <th class="align-right">配当利回り</th>
                 </tr>
             `;
             
-            // 結果を一行ずつ表に追加
             results.forEach(data => {
                 const row = document.createElement('tr');
                 if (data.error) {
@@ -164,19 +163,19 @@
                     row.innerHTML = `<td colspan="13">コード: ${data.code} - ${data.error}</td>`;
                 } else {
                     row.innerHTML = `
-                        <td>${data.companyName}</td>
-                        <td>${data.code}</td>
-                        <td>${data.market}</td>
-                        <td>${data.price}</td>
-                        <td>${data.marketCap}</td>
-                        <td>${data.sales_latest}</td>
-                        <td>${data.pretaxIncome}</td>
-                        <td>${data.netIncome}</td>
-                        <td>${data.eps}</td>
-                        <td>${data.bps}</td>
-                        <td>${data.pbr}</td>
-                        <td>${data.roe}</td>
-                        <td>${data.dividendYield}</td>
+                        <td class="align-left">${data.companyName}</td>
+                        <td class="align-left">${data.code}</td>
+                        <td class="align-left">${data.market}</td>
+                        <td class="align-right">${data.price}</td>
+                        <td class="align-right">${data.marketCap}</td>
+                        <td class="align-right">${data.sales_latest}</td>
+                        <td class="align-right">${data.pretaxIncome}</td>
+                        <td class="align-right">${data.netIncome}</td>
+                        <td class="align-right">${data.eps}</td>
+                        <td class="align-right">${data.bps}</td>
+                        <td class="align-right">${data.pbr}</td>
+                        <td class="align-right">${data.roe}</td>
+                        <td class="align-right">${data.dividendYield}</td>
                     `;
                 }
                 tableBody.appendChild(row);
