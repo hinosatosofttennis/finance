@@ -94,6 +94,12 @@ def get_stock_data(ticker_symbol):
     except Exception:
         pretax_income, net_income, latest_sales = None, None, None
     
+    # 前日比データの取得
+    current_price = stock_info.get('currentPrice', 0)
+    previous_close = stock_info.get('previousClose', current_price)
+    change_value = current_price - previous_close if current_price and previous_close else 0
+    change_percent = (change_value / previous_close * 100) if previous_close and previous_close != 0 else 0
+    
     raw_yield = stock_info.get('dividendYield', 0) or 0
     formatted_yield = f"{(raw_yield * 100):.2f} %" if 0 < raw_yield < 1 else f"{raw_yield:.2f} %"
 
@@ -101,7 +107,9 @@ def get_stock_data(ticker_symbol):
         'companyName': japanese_name or stock_info.get('longName', '---'),
         'code': ticker_symbol,
         'market': stock_info.get('exchange', '').replace('JPX', '東証').replace('FSE', '福証').replace('SSE', '札証').replace('NAG', '名証'),
-        'price': f"{stock_info.get('currentPrice', 0):,}",
+        'price': f"{current_price:,}",
+        'change': change_value,  # 前日比(値幅)
+        'changePercent': change_percent,  # 前日比(%)
         'marketCap': format_yen(stock_info.get('marketCap')),
         'pretaxIncome': format_yen(pretax_income),
         'netIncome': format_yen(net_income),
@@ -125,3 +133,6 @@ def stock_data_endpoint():
         return jsonify(data)
     except Exception as e:
         return jsonify({"error": str(e), "code": code}), 500
+
+if __name__ == '__main__':
+    app.run(debug=True)
