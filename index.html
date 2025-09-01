@@ -37,11 +37,19 @@
             border-radius: 5px;
             font-size: 0.8em;
             transition: background-color 0.2s, color 0.2s;
+            user-select: none; /* テキスト選択を無効化 */
         }
         .sheet-tab.active {
             background-color: #007bff;
             color: white;
             border-color: #007bff;
+        }
+        .sheet-tab input {
+            font-size: 1em;
+            border: 1px solid #007bff;
+            padding: 2px;
+            border-radius: 3px;
+            width: 80px; /* 入力欄の幅 */
         }
         #company-input {
             width: 100%;
@@ -53,46 +61,23 @@
             min-height: 120px;
             font-family: 'Meiryo', 'メイリオ', sans-serif;
         }
-        .button-group {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-        }
+        .button-group { display: flex; gap: 10px; margin-top: 10px; }
         #save-button, #search-button {
-            flex-grow: 1;
-            padding: 12px 15px;
-            font-size: 1.1em;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
+            flex-grow: 1; padding: 12px 15px; font-size: 1.1em;
+            color: white; border: none; border-radius: 5px; cursor: pointer;
         }
         #save-button { background-color: #28a745; }
         #search-button { background-color: #007bff; }
-
         #loader { text-align: center; display: none; margin: 20px; }
         .table-container {
-            overflow-x: auto;
-            background-color: white;
-            border-radius: 8px;
+            overflow-x: auto; background-color: white; border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        #results-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.8em;
-        }
-        #results-table th, #results-table td {
-            padding: 10px;
-            border-bottom: 1px solid #eee;
-            white-space: nowrap;
-        }
+        #results-table { width: 100%; border-collapse: collapse; font-size: 0.8em; }
+        #results-table th, #results-table td { padding: 10px; border-bottom: 1px solid #eee; white-space: nowrap; }
         #results-table th { background-color: #f8f9fa; font-weight: bold; }
         #results-table td:first-child, #results-table th:first-child {
-            position: sticky;
-            left: 0;
-            background-color: white;
-            border-right: 1px solid #eee;
+            position: sticky; left: 0; background-color: white; border-right: 1px solid #eee;
         }
         #results-table th:first-child { background-color: #f8f9fa; }
         .align-left { text-align: left; }
@@ -116,10 +101,7 @@
     <div id="loader">検索中...</div>
     
     <div class="table-container">
-        <table id="results-table">
-            <thead></thead>
-            <tbody></tbody>
-        </table>
+        <table id="results-table"><thead></thead><tbody></tbody></table>
     </div>
 
     <script>
@@ -133,19 +115,14 @@
 
         const TOTAL_SHEETS = 10;
         let activeSheet = 1;
+        let sheetNames = [];
 
         // --- 初期化処理 ---
         window.onload = () => {
-            // シートタブを作成
+            loadSheetNames();
             for (let i = 1; i <= TOTAL_SHEETS; i++) {
-                const tab = document.createElement('div');
-                tab.className = 'sheet-tab';
-                tab.textContent = `シート${i}`;
-                tab.dataset.sheetId = i;
-                tab.onclick = () => switchSheet(i);
-                sheetTabsContainer.appendChild(tab);
+                createSheetTab(i);
             }
-            // 最初のシートをアクティブにする
             switchSheet(1);
         };
 
@@ -154,16 +131,68 @@
         searchButton.addEventListener('click', searchCompanies);
 
         // --- 機能関数 ---
+        function loadSheetNames() {
+            const savedNames = localStorage.getItem('stock_sheet_names');
+            if (savedNames) {
+                sheetNames = JSON.parse(savedNames);
+            } else {
+                // デフォルトのシート名を作成
+                sheetNames = Array.from({ length: TOTAL_SHEETS }, (_, i) => `シート${i + 1}`);
+            }
+        }
+
+        function saveSheetNames() {
+            localStorage.setItem('stock_sheet_names', JSON.stringify(sheetNames));
+        }
+
+        function createSheetTab(sheetId) {
+            const tab = document.createElement('div');
+            tab.className = 'sheet-tab';
+            tab.textContent = sheetNames[sheetId - 1];
+            tab.dataset.sheetId = sheetId;
+            tab.onclick = () => switchSheet(sheetId);
+            // ダブルクリックで名前編集
+            tab.ondblclick = () => editSheetName(tab, sheetId);
+            sheetTabsContainer.appendChild(tab);
+        }
+
+        function editSheetName(tab, sheetId) {
+            const oldName = tab.textContent;
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = oldName;
+            
+            input.onblur = () => saveName(input, tab, sheetId, oldName);
+            input.onkeydown = (e) => {
+                if (e.key === 'Enter') input.blur();
+                if (e.key === 'Escape') {
+                    tab.textContent = oldName; // 編集をキャンセル
+                }
+            };
+
+            tab.textContent = '';
+            tab.appendChild(input);
+            input.focus();
+        }
+
+        function saveName(input, tab, sheetId, oldName) {
+            const newName = input.value.trim();
+            if (newName && newName.length > 0) {
+                sheetNames[sheetId - 1] = newName;
+                tab.textContent = newName;
+                saveSheetNames();
+            } else {
+                tab.textContent = oldName; // 空の場合は元に戻す
+            }
+        }
+
         function switchSheet(sheetId) {
             activeSheet = sheetId;
-            // タブのハイライトを更新
             document.querySelectorAll('.sheet-tab').forEach(tab => {
                 tab.classList.toggle('active', tab.dataset.sheetId == sheetId);
             });
-            // 保存されたデータをテキストエリアに読み込む
             const savedData = localStorage.getItem(`stock_sheet_${sheetId}`) || '';
             companyInput.value = savedData;
-            // シートを切り替えたら自動で検索を実行
             searchCompanies();
         }
 
@@ -172,23 +201,18 @@
             const codes = [...new Set(rawInput.split(/[,\s\n]+/).filter(code => /^\d{4}$/.test(code)))];
 
             if (codes.length > 10) {
-                alert('1シートに登録できる銘柄は10件までです。');
-                return;
+                alert('1シートに登録できる銘柄は10件までです。'); return;
             }
-
             localStorage.setItem(`stock_sheet_${activeSheet}`, codes.join('\n'));
-            alert(`シート${activeSheet} に ${codes.length} 件の銘柄を保存しました。`);
+            alert(`「${sheetNames[activeSheet - 1]}」に ${codes.length} 件の銘柄を保存しました。`);
         }
         
         async function searchCompanies() {
             const rawInput = companyInput.value.trim();
             if (!rawInput) {
-                tableHead.innerHTML = '';
-                tableBody.innerHTML = '';
-                return;
+                tableHead.innerHTML = ''; tableBody.innerHTML = ''; return;
             }
             const codes = [...new Set(rawInput.split(/[,\s\n]+/).filter(code => /^\d{4}$/.test(code)))];
-
             if (codes.length === 0) {
                 tableHead.innerHTML = '';
                 tableBody.innerHTML = `<tr><td colspan="13" style="text-align:center;">有効な証券コードがありません。</td></tr>`;
@@ -196,15 +220,12 @@
             }
 
             loader.style.display = 'block';
-            tableHead.innerHTML = '';
-            tableBody.innerHTML = '';
-
+            tableHead.innerHTML = ''; tableBody.innerHTML = '';
             const serviceUrl = 'https://your-service-name.onrender.com'; // TODO: あなたのRender URLに書き換えてください
             
             const promises = codes.map(code => 
                 fetch(`${serviceUrl}/stock-data?code=${code}`)
-                    .then(res => res.json())
-                    .catch(err => ({error: `ネットワークエラー(${code})`, code}))
+                .then(res => res.json()).catch(err => ({error: `ネットワークエラー(${code})`, code}))
             );
             
             const results = await Promise.all(promises);
@@ -217,22 +238,13 @@
 
             tableHead.innerHTML = `
                 <tr>
-                    <th class="align-left">銘柄名</th>
-                    <th class="align-left">コード</th>
-                    <th class="align-left">市場</th>
-                    <th class="align-right">株価(円)</th>
-                    <th class="align-right">時価総額</th>
-                    <th class="align-right">売上高</th>
-                    <th class="align-right">税引前利益</th>
-                    <th class="align-right">当期利益</th>
-                    <th class="align-right">EPS</th>
-                    <th class="align-right">BPS</th>
-                    <th class="align-right">PBR</th>
-                    <th class="align-right">ROE(%)</th>
+                    <th class="align-left">銘柄名</th><th class="align-left">コード</th><th class="align-left">市場</th>
+                    <th class="align-right">株価(円)</th><th class="align-right">時価総額</th><th class="align-right">売上高</th>
+                    <th class="align-right">税引前利益</th><th class="align-right">当期利益</th><th class="align-right">EPS</th>
+                    <th class="align-right">BPS</th><th class="align-right">PBR</th><th class="align-right">ROE(%)</th>
                     <th class="align-right">配当利回り</th>
                 </tr>
             `;
-            
             results.forEach(data => {
                 const row = document.createElement('tr');
                 if (data.error) {
@@ -240,18 +252,12 @@
                     row.innerHTML = `<td colspan="13">コード: ${data.code} - ${data.error}</td>`;
                 } else {
                     row.innerHTML = `
-                        <td class="align-left">${data.companyName}</td>
-                        <td class="align-left">${data.code}</td>
-                        <td class="align-left">${data.market}</td>
-                        <td class="align-right">${data.price}</td>
-                        <td class="align-right">${data.marketCap}</td>
-                        <td class="align-right">${data.sales_latest}</td>
-                        <td class="align-right">${data.pretaxIncome}</td>
-                        <td class="align-right">${data.netIncome}</td>
-                        <td class="align-right">${data.eps}</td>
-                        <td class="align-right">${data.bps}</td>
-                        <td class="align-right">${data.pbr}</td>
-                        <td class="align-right">${data.roe}</td>
+                        <td class="align-left">${data.companyName}</td><td class="align-left">${data.code}</td>
+                        <td class="align-left">${data.market}</td><td class="align-right">${data.price}</td>
+                        <td class="align-right">${data.marketCap}</td><td class="align-right">${data.sales_latest}</td>
+                        <td class="align-right">${data.pretaxIncome}</td><td class="align-right">${data.netIncome}</td>
+                        <td class="align-right">${data.eps}</td><td class="align-right">${data.bps}</td>
+                        <td class="align-right">${data.pbr}</td><td class="align-right">${data.roe}</td>
                         <td class="align-right">${data.dividendYield}</td>
                     `;
                 }
