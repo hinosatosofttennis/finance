@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>企業データ検索</title>
+    <title>企業データ検索 (Yahoo!ファイナンス)</title>
     <style>
-        /* スマートフォン向けの基本デザイン */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             margin: 0;
@@ -28,6 +27,7 @@
             font-size: 1em;
             border: 1px solid #ccc;
             border-radius: 5px;
+            -webkit-appearance: none; /* iOSでの見た目をリセット */
         }
         #search-button {
             padding: 10px 15px;
@@ -63,6 +63,7 @@
             background-color: #eee;
             padding: 3px 6px;
             border-radius: 3px;
+            white-space: nowrap;
         }
         .price {
             font-size: 1.8em;
@@ -73,7 +74,7 @@
         .data-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 10px;
+            gap: 12px;
             font-size: 0.9em;
         }
         .data-item {
@@ -91,8 +92,10 @@
             color: #0056b3;
             font-weight: 500;
         }
-        #loader {
+        #loader, #error-message {
             text-align: center;
+            padding: 20px;
+            color: #555;
             display: none; /* 初期状態では非表示 */
         }
     </style>
@@ -102,72 +105,103 @@
     <h1>企業データ検索</h1>
 
     <div id="search-container">
-        <input type="text" id="company-input" placeholder="会社名や証券コードを入力 (例: トヨタ)">
+        <input type="number" id="company-input" placeholder="証券コード4桁で入力 (例: 7203)">
         <button id="search-button">検索</button>
     </div>
 
     <div id="loader">検索中...</div>
+    <div id="error-message"></div>
     <div id="results-container"></div>
-    
-<script>
-    // ...
-    
-    async function searchCompany() {
-        // 例として証券コードで検索する仕様に変更
-        const code = document.getElementById('company-input').value.trim();
-        if (!code) {
-            alert('証券コードを入力してください。');
-            return;
-        }
 
-        resultsContainer.innerHTML = '';
-        loader.style.display = 'block';
+    <script>
+        const searchButton = document.getElementById('search-button');
+        const companyInput = document.getElementById('company-input');
+        const resultsContainer = document.getElementById('results-container');
+        const loader = document.getElementById('loader');
+        const errorMessage = document.getElementById('error-message');
+        
+        // 検索ボタンクリック時の処理
+        searchButton.addEventListener('click', searchCompany);
+        
+        // Enterキーでも検索できるようにする
+        companyInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchCompany();
+            }
+        });
 
-        try {
-            // 自分たちが作ったバックエンドサーバーにデータをリクエストする
-            // 例: http://127.0.0.1:5000/data/7203 (トヨタ自動車)
-            const response = await fetch(`/data/${code}`);
-            const data = await response.json();
-
-            if (data.error) {
-                throw new Error(data.error);
+        async function searchCompany() {
+            const code = companyInput.value.trim();
+            if (!/^\d{4}$/.test(code)) {
+                alert('4桁の証券コードを正しく入力してください。');
+                return;
             }
 
-            displayData(data); // 取得したデータを画面に表示する
+            // 表示をリセット
+            resultsContainer.innerHTML = '';
+            errorMessage.style.display = 'none';
+            loader.style.display = 'block';
 
-        } catch (error) {
-            console.error('Error:', error);
-            resultsContainer.innerHTML = '<p>データの取得中にエラーが発生しました。</p>';
-        } finally {
-            loader.style.display = 'none';
+            try {
+                // app.pyで起動したローカルサーバーに問い合わせる
+                const response = await fetch(`http://127.0.0.1:5000/stock-data?code=${code}`);
+                const data = await response.json();
+
+                if (response.status !== 200 || data.error) {
+                    throw new Error(data.error || '不明なエラーが発生しました');
+                }
+                
+                // 取得したデータを元に画面表示を生成
+                displayData(data);
+
+            } catch (error) {
+                console.error('Error:', error);
+                errorMessage.innerText = `エラー: ${error.message}`;
+                errorMessage.style.display = 'block';
+            } finally {
+                loader.style.display = 'none';
+            }
         }
-    }
 
-    function displayData(data) {
-        // バックエンドから受け取ったデータを元にHTMLを組み立てる
-        // （この部分のロジックは前回とほぼ同じ）
-        const card = `
-            <div class="company-card">
-                <div class="company-header">
-                    <span class="company-name">${data.companyName}</span>
-                    <span class="company-code">${data.code} (${data.market})</span>
-                </div>
-                <div class="price">¥ ${data.price.toLocaleString()}</div>
-                <div class="data-grid">
-                    <div class="data-item">
-                        <span class="data-label">売上高(前期)</span>
-                        <span class="data-value">${(data.sales_latest / 100000000).toFixed(2)} 億円</span>
+        function displayData(data) {
+            const card = `
+                <div class="company-card">
+                    <div class="company-header">
+                        <span class="company-name">${data.companyName}</span>
+                        <span class="company-code">${data.code} (${data.market})</span>
                     </div>
-                    <div class="data-item">
-                        <span class="data-label">EPS (一株利益)</span>
-                        <span class="data-value">${data.eps}</span>
+                    <div class="price">¥ ${data.price}</div>
+                    <div class="data-grid">
+                        <div class="data-item">
+                            <span class="data-label">売上高 (直近)</span>
+                            <span class="data-value">${data.sales_latest}</span>
+                        </div>
+                        <div class="data-item">
+                            <span class="data-label">EPS (一株利益)</span>
+                            <span class="data-value">${data.eps}</span>
+                        </div>
+                        <div class="data-item">
+                            <span class="data-label">BPS (一株純資産)</span>
+                            <span class="data-value">${data.bps}</span>
+                        </div>
+                        <div class="data-item">
+                            <span class="data-label">ROE</span>
+                            <span class="data-value">${data.roe}</span>
+                        </div>
+                         <div class="data-item">
+                            <span class="data-label">PBR</span>
+                            <span class="data-value">${data.pbr}</span>
+                        </div>
+                        <div class="data-item">
+                            <span class="data-label">配当利回り</span>
+                            <span class="data-value">${data.dividendYield}</span>
+                        </div>
                     </div>
-                    // ... 他のデータ項目も同様に表示 ...
                 </div>
-            </div>
-        `;
-        resultsContainer.innerHTML = card;
-    }
-</script> 
+            `;
+            // 検索結果をコンテナに追加（複数の会社を検索する場合は`+=`にする）
+            resultsContainer.innerHTML = card;
+        }
+    </script>
 </body>
 </html>
