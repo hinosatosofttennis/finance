@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>企業データ検索リスト</title>
+    <title>企業データ ポートフォリオ</title>
     <style>
         body {
             font-family: 'Meiryo', 'メイリオ', sans-serif;
@@ -16,7 +16,33 @@
             text-align: center;
             color: #333;
         }
-        #search-container { margin-bottom: 20px; }
+        .controls-container {
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        #sheet-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+        .sheet-tab {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            background-color: #f0f0f0;
+            cursor: pointer;
+            border-radius: 5px;
+            font-size: 0.8em;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .sheet-tab.active {
+            background-color: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
         #company-input {
             width: 100%;
             box-sizing: border-box;
@@ -24,21 +50,27 @@
             font-size: 1em;
             border: 1px solid #ccc;
             border-radius: 5px;
-            min-height: 80px;
+            min-height: 120px;
             font-family: 'Meiryo', 'メイリオ', sans-serif;
         }
-        #search-button {
-            width: 100%;
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        #save-button, #search-button {
+            flex-grow: 1;
             padding: 12px 15px;
             font-size: 1.1em;
-            background-color: #007bff;
             color: white;
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            margin-top: 10px;
         }
-        #loader { text-align: center; display: none; }
+        #save-button { background-color: #28a745; }
+        #search-button { background-color: #007bff; }
+
+        #loader { text-align: center; display: none; margin: 20px; }
         .table-container {
             overflow-x: auto;
             background-color: white;
@@ -70,11 +102,15 @@
 </head>
 <body>
 
-    <h1>企業データ リスト検索</h1>
+    <h1>企業データ ポートフォリオ</h1>
 
-    <div id="search-container">
-        <textarea id="company-input" placeholder="証券コードを改行またはカンマ区切りで入力&#10;(例)&#10;7203&#10;9984, 6758"></textarea>
-        <button id="search-button">検索</button>
+    <div class="controls-container">
+        <div id="sheet-tabs"></div>
+        <textarea id="company-input" placeholder="証券コードを改行またはカンマ区切りで入力 (1シート10件まで)"></textarea>
+        <div class="button-group">
+            <button id="save-button">💾 現在のリストを保存</button>
+            <button id="search-button">🔄 再検索</button>
+        </div>
     </div>
 
     <div id="loader">検索中...</div>
@@ -87,25 +123,83 @@
     </div>
 
     <script>
-        const searchButton = document.getElementById('search-button');
         const companyInput = document.getElementById('company-input');
         const tableHead = document.querySelector('#results-table thead');
         const tableBody = document.querySelector('#results-table tbody');
         const loader = document.getElementById('loader');
-        
+        const sheetTabsContainer = document.getElementById('sheet-tabs');
+        const saveButton = document.getElementById('save-button');
+        const searchButton = document.getElementById('search-button');
+
+        const TOTAL_SHEETS = 10;
+        let activeSheet = 1;
+
+        // --- 初期化処理 ---
+        window.onload = () => {
+            // シートタブを作成
+            for (let i = 1; i <= TOTAL_SHEETS; i++) {
+                const tab = document.createElement('div');
+                tab.className = 'sheet-tab';
+                tab.textContent = `シート${i}`;
+                tab.dataset.sheetId = i;
+                tab.onclick = () => switchSheet(i);
+                sheetTabsContainer.appendChild(tab);
+            }
+            // 最初のシートをアクティブにする
+            switchSheet(1);
+        };
+
+        // --- イベントリスナー ---
+        saveButton.addEventListener('click', saveCurrentSheet);
         searchButton.addEventListener('click', searchCompanies);
+
+        // --- 機能関数 ---
+        function switchSheet(sheetId) {
+            activeSheet = sheetId;
+            // タブのハイライトを更新
+            document.querySelectorAll('.sheet-tab').forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.sheetId == sheetId);
+            });
+            // 保存されたデータをテキストエリアに読み込む
+            const savedData = localStorage.getItem(`stock_sheet_${sheetId}`) || '';
+            companyInput.value = savedData;
+            // シートを切り替えたら自動で検索を実行
+            searchCompanies();
+        }
+
+        function saveCurrentSheet() {
+            const rawInput = companyInput.value.trim();
+            const codes = [...new Set(rawInput.split(/[,\s\n]+/).filter(code => /^\d{4}$/.test(code)))];
+
+            if (codes.length > 10) {
+                alert('1シートに登録できる銘柄は10件までです。');
+                return;
+            }
+
+            localStorage.setItem(`stock_sheet_${activeSheet}`, codes.join('\n'));
+            alert(`シート${activeSheet} に ${codes.length} 件の銘柄を保存しました。`);
+        }
         
         async function searchCompanies() {
             const rawInput = companyInput.value.trim();
-            if (!rawInput) { alert('証券コードを入力してください。'); return; }
+            if (!rawInput) {
+                tableHead.innerHTML = '';
+                tableBody.innerHTML = '';
+                return;
+            }
             const codes = [...new Set(rawInput.split(/[,\s\n]+/).filter(code => /^\d{4}$/.test(code)))];
-            if (codes.length === 0) { alert('有効な4桁の証券コードが見つかりません。'); return; }
+
+            if (codes.length === 0) {
+                tableHead.innerHTML = '';
+                tableBody.innerHTML = `<tr><td colspan="13" style="text-align:center;">有効な証券コードがありません。</td></tr>`;
+                return;
+            }
 
             loader.style.display = 'block';
             tableHead.innerHTML = '';
             tableBody.innerHTML = '';
 
-            const serviceUrl = 'https://finance-1-wf97.onrender.com'; // TODO: あなたのRender URLに書き換えてください
+            const serviceUrl = 'https://your-service-name.onrender.com'; // TODO: あなたのRender URLに書き換えてください
             
             const promises = codes.map(code => 
                 fetch(`${serviceUrl}/stock-data?code=${code}`)
