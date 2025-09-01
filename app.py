@@ -1,5 +1,3 @@
-# ファイル名: app.py
-
 # 必要なライブラリをインポート
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -43,13 +41,10 @@ def get_japanese_name_from_yahoo_jp(ticker_with_suffix):
             if element:
                 text = element.get_text(strip=True)
                 if any('\u3040' <= char <= '\u9FAF' for char in text):
-                    # --- ★★★ ここから修正箇所 ★★★ ---
-                    # "の株価・株式情報" という末尾の文字列が含まれていれば、それを取り除く
                     suffix_to_remove = "の株価・株式情報"
                     if text.endswith(suffix_to_remove):
                         return text[:-len(suffix_to_remove)].strip()
                     return text
-                    # --- ★★★ 修正ここまで ★★★ ---
                     
     except Exception as e:
         print(f"Scraping failed for {ticker_with_suffix}: {e}")
@@ -66,7 +61,7 @@ def get_stock_data(ticker_symbol):
     """
     証券コードを元に企業データを取得する関数
     """
-    exchanges = ['.T', '.F', '.S', '.N'] # 東証, 福証, 札証, 名証
+    exchanges = ['.T', '.F', '.S', '.N']
     stock_info, stock_obj, successful_ticker = None, None, None
 
     for suffix in exchanges:
@@ -102,6 +97,10 @@ def get_stock_data(ticker_symbol):
         'code': ticker_symbol,
         'market': stock_info.get('exchange', '').replace('JPX', '東証').replace('FSE', '福証').replace('SSE', '札証').replace('NAG', '名証'),
         'price': f"{stock_info.get('currentPrice', 0):,}",
+        # --- ★★★ ここから追加箇所 ★★★ ---
+        'change': stock_info.get('regularMarketChange', 0),
+        'changePercent': stock_info.get('regularMarketChangePercent', 0) * 100,
+        # --- ★★★ 追加ここまで ★★★ ---
         'marketCap': format_yen(stock_info.get('marketCap')),
         'pretaxIncome': format_yen(pretax_income),
         'netIncome': format_yen(net_income),
