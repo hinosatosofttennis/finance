@@ -6,7 +6,6 @@
     <title>企業データ検索リスト</title>
     <style>
         body {
-            /* フォントをメイリオに統一 */
             font-family: 'Meiryo', 'メイリオ', sans-serif;
             margin: 0;
             padding: 15px;
@@ -17,9 +16,7 @@
             text-align: center;
             color: #333;
         }
-        #search-container {
-            margin-bottom: 20px;
-        }
+        #search-container { margin-bottom: 20px; }
         #company-input {
             width: 100%;
             box-sizing: border-box;
@@ -28,7 +25,7 @@
             border: 1px solid #ccc;
             border-radius: 5px;
             min-height: 80px;
-            font-family: 'Meiryo', 'メイリオ', sans-serif; /* 入力欄のフォントも指定 */
+            font-family: 'Meiryo', 'メイリオ', sans-serif;
         }
         #search-button {
             width: 100%;
@@ -58,10 +55,7 @@
             border-bottom: 1px solid #eee;
             white-space: nowrap;
         }
-        #results-table th {
-            background-color: #f8f9fa;
-            font-weight: bold;
-        }
+        #results-table th { background-color: #f8f9fa; font-weight: bold; }
         #results-table td:first-child, #results-table th:first-child {
             position: sticky;
             left: 0;
@@ -69,20 +63,9 @@
             border-right: 1px solid #eee;
         }
         #results-table th:first-child { background-color: #f8f9fa; }
-        
-        /* --- ここから追加・修正 --- */
-        .align-left {
-            text-align: left;
-        }
-        .align-right {
-            text-align: right;
-        }
-        .error-row td {
-            color: red;
-            text-align: center;
-        }
-        /* --- ここまで --- */
-
+        .align-left { text-align: left; }
+        .align-right { text-align: right; }
+        .error-row td { color: red; text-align: center; }
     </style>
 </head>
 <body>
