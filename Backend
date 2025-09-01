@@ -1,0 +1,47 @@
+# 注意：このコードを動作させるには、別途ライブラリのインストールが必要です。
+# pip install Flask yfinance pandas
+
+from flask import Flask, jsonify
+import yfinance as yf
+
+app = Flask(__name__)
+
+# 証券コードを元に企業データを取得する関数
+def get_stock_data(ticker_symbol):
+    # 日本株の場合は末尾に ".T" をつける
+    stock = yf.Ticker(f"{ticker_symbol}.T")
+    
+    # --- 必要なデータを取得 ---
+    info = stock.info
+    financials = stock.financials
+    
+    # データを抽出・整理
+    data = {
+        'companyName': info.get('longName', 'N/A'),
+        'code': ticker_symbol,
+        'market': info.get('exchange', 'N/A'),
+        'price': info.get('currentPrice', 'N/A'),
+        # --- 業績 ---
+        # yfinanceでは直近と予想の売上/経常利益を直接取得するのは難しい
+        # 代わりに総売上高(Total Revenue)などを取得する
+        'sales_latest': financials.loc['Total Revenue'].iloc[0] if not financials.empty else 'N/A',
+        # --- 各種指標 ---
+        'eps': info.get('trailingEps', 'N/A'),
+        'dividendYield': info.get('dividendYield', 0) * 100, # %に変換
+        'pbr': info.get('priceToBook', 'N/A'),
+        'roe': info.get('returnOnEquity', 0) * 100, # %に変換
+        'bps': info.get('bookValue', 'N/A'),
+    }
+    return data
+
+# '/data/7203' のようなURLでアクセスされた時に動作
+@app.route('/data/<code>')
+def data_endpoint(code):
+    try:
+        stock_data = get_stock_data(code)
+        return jsonify(stock_data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+if __name__ == '__main__':
+    app.run(debug=True)
