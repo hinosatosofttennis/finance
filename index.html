@@ -37,7 +37,7 @@
             border-radius: 5px;
             font-size: 0.8em;
             transition: background-color 0.2s, color 0.2s;
-            user-select: none; /* テキスト選択を無効化 */
+            user-select: none;
         }
         .sheet-tab.active {
             background-color: #007bff;
@@ -49,7 +49,7 @@
             border: 1px solid #007bff;
             padding: 2px;
             border-radius: 3px;
-            width: 80px; /* 入力欄の幅 */
+            width: 80px;
         }
         #company-input {
             width: 100%;
@@ -83,6 +83,8 @@
         .align-left { text-align: left; }
         .align-right { text-align: right; }
         .error-row td { color: red; text-align: center; }
+        .change-plus { color: #00b300; }
+        .change-minus { color: #ff3333; }
     </style>
 </head>
 <body>
@@ -91,7 +93,7 @@
 
     <div class="controls-container">
         <div id="sheet-tabs"></div>
-        <textarea id="company-input" placeholder="証券コードを改行またはカンマ区切りで入力 (1シート10件まで)"></textarea>
+        <textarea id="company-input" placeholder="証券コードを改行・スペース・カンマ区切りで入力 (1シート10件まで)"></textarea>
         <div class="button-group">
             <button id="save-button">💾 現在のリストを保存</button>
             <button id="search-button">🔄 再検索</button>
@@ -136,7 +138,6 @@
             if (savedNames) {
                 sheetNames = JSON.parse(savedNames);
             } else {
-                // デフォルトのシート名を作成
                 sheetNames = Array.from({ length: TOTAL_SHEETS }, (_, i) => `シート${i + 1}`);
             }
         }
@@ -151,7 +152,6 @@
             tab.textContent = sheetNames[sheetId - 1];
             tab.dataset.sheetId = sheetId;
             tab.onclick = () => switchSheet(sheetId);
-            // ダブルクリックで名前編集
             tab.ondblclick = () => editSheetName(tab, sheetId);
             sheetTabsContainer.appendChild(tab);
         }
@@ -166,7 +166,7 @@
             input.onkeydown = (e) => {
                 if (e.key === 'Enter') input.blur();
                 if (e.key === 'Escape') {
-                    tab.textContent = oldName; // 編集をキャンセル
+                    tab.textContent = oldName;
                 }
             };
 
@@ -182,7 +182,7 @@
                 tab.textContent = newName;
                 saveSheetNames();
             } else {
-                tab.textContent = oldName; // 空の場合は元に戻す
+                tab.textContent = oldName;
             }
         }
 
@@ -198,7 +198,7 @@
 
         function saveCurrentSheet() {
             const rawInput = companyInput.value.trim();
-            const codes = [...new Set(rawInput.split(/[,\s\n]+/).filter(code => /^\d{4}$/.test(code)))];
+            const codes = [...new Set(rawInput.split(/[,\s\n　]+/).filter(code => /^\d{4}$/.test(code)))];
 
             if (codes.length > 10) {
                 alert('1シートに登録できる銘柄は10件までです。'); return;
@@ -212,16 +212,16 @@
             if (!rawInput) {
                 tableHead.innerHTML = ''; tableBody.innerHTML = ''; return;
             }
-            const codes = [...new Set(rawInput.split(/[,\s\n]+/).filter(code => /^\d{4}$/.test(code)))];
+            const codes = [...new Set(rawInput.split(/[,\s\n　]+/).filter(code => /^\d{4}$/.test(code)))];
             if (codes.length === 0) {
                 tableHead.innerHTML = '';
-                tableBody.innerHTML = `<tr><td colspan="13" style="text-align:center;">有効な証券コードがありません。</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="15" style="text-align:center;">有効な証券コードがありません。</td></tr>`;
                 return;
             }
 
             loader.style.display = 'block';
             tableHead.innerHTML = ''; tableBody.innerHTML = '';
-            const serviceUrl = 'https://finance-1-wf97.onrender.com'; // TODO: あなたのRender URLに書き換えてください
+            const serviceUrl = 'https://finance-rejk.onrender.com'; // TODO: あなたのRender URLに書き換えてください
             
             const promises = codes.map(code => 
                 fetch(`${serviceUrl}/stock-data?code=${code}`)
@@ -238,10 +238,20 @@
 
             tableHead.innerHTML = `
                 <tr>
-                    <th class="align-left">銘柄名</th><th class="align-left">コード</th><th class="align-left">市場</th>
-                    <th class="align-right">株価(円)</th><th class="align-right">時価総額</th><th class="align-right">売上高</th>
-                    <th class="align-right">税引前利益</th><th class="align-right">当期利益</th><th class="align-right">EPS</th>
-                    <th class="align-right">BPS</th><th class="align-right">PBR</th><th class="align-right">ROE(%)</th>
+                    <th class="align-left">銘柄名</th>
+                    <th class="align-left">コード</th>
+                    <th class="align-left">市場</th>
+                    <th class="align-right">現値(円)</th>
+                    <th class="align-right">前日比(値幅)</th>
+                    <th class="align-right">前日比(%)</th>
+                    <th class="align-right">時価総額</th>
+                    <th class="align-right">売上高</th>
+                    <th class="align-right">税引前利益</th>
+                    <th class="align-right">当期利益</th>
+                    <th class="align-right">EPS</th>
+                    <th class="align-right">BPS</th>
+                    <th class="align-right">PBR</th>
+                    <th class="align-right">ROE(%)</th>
                     <th class="align-right">配当利回り</th>
                 </tr>
             `;
@@ -249,15 +259,27 @@
                 const row = document.createElement('tr');
                 if (data.error) {
                     row.classList.add('error-row');
-                    row.innerHTML = `<td colspan="13">コード: ${data.code} - ${data.error}</td>`;
+                    row.innerHTML = `<td colspan="15">コード: ${data.code} - ${data.error}</td>`;
                 } else {
+                    const change = data.change.toFixed(2);
+                    const changePercent = data.changePercent.toFixed(2);
+                    const changeClass = change > 0 ? 'change-plus' : (change < 0 ? 'change-minus' : '');
+                    
                     row.innerHTML = `
-                        <td class="align-left">${data.companyName}</td><td class="align-left">${data.code}</td>
-                        <td class="align-left">${data.market}</td><td class="align-right">${data.price}</td>
-                        <td class="align-right">${data.marketCap}</td><td class="align-right">${data.sales_latest}</td>
-                        <td class="align-right">${data.pretaxIncome}</td><td class="align-right">${data.netIncome}</td>
-                        <td class="align-right">${data.eps}</td><td class="align-right">${data.bps}</td>
-                        <td class="align-right">${data.pbr}</td><td class="align-right">${data.roe}</td>
+                        <td class="align-left">${data.companyName}</td>
+                        <td class="align-left">${data.code}</td>
+                        <td class="align-left">${data.market}</td>
+                        <td class="align-right">${data.price}</td>
+                        <td class="align-right ${changeClass}">${change > 0 ? '+' : ''}${change}</td>
+                        <td class="align-right ${changeClass}">${changePercent > 0 ? '+' : ''}${changePercent}%</td>
+                        <td class="align-right">${data.marketCap}</td>
+                        <td class="align-right">${data.sales_latest}</td>
+                        <td class="align-right">${data.pretaxIncome}</td>
+                        <td class="align-right">${data.netIncome}</td>
+                        <td class="align-right">${data.eps}</td>
+                        <td class="align-right">${data.bps}</td>
+                        <td class="align-right">${data.pbr}</td>
+                        <td class="align-right">${data.roe}</td>
                         <td class="align-right">${data.dividendYield}</td>
                     `;
                 }
