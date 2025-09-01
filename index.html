@@ -108,133 +108,66 @@
 
     <div id="loader">検索中...</div>
     <div id="results-container"></div>
-
-    <script>
-        // --- 設定項目 ---
-        // TODO: ここにあなた自身のAlpha Vantage APIキーを設定してください
-        const API_KEY = 'YOUR_API_KEY'; 
-
-        const searchButton = document.getElementById('search-button');
-        const companyInput = document.getElementById('company-input');
-        const resultsContainer = document.getElementById('results-container');
-        const loader = document.getElementById('loader');
-
-        searchButton.addEventListener('click', searchCompany);
-        companyInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                searchCompany();
-            }
-        });
-
-        async function searchCompany() {
-            const query = companyInput.value.trim();
-            if (!query) {
-                alert('会社名または証券コードを入力してください。');
-                return;
-            }
-
-            resultsContainer.innerHTML = ''; // 前回の結果をクリア
-            loader.style.display = 'block'; // ローディング表示
-
-            try {
-                // Alpha Vantage APIを使用してキーワードから企業を検索
-                // 日本市場に限定したい場合は、APIの仕様を確認してください。
-                const searchUrl = `https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords=${query}&apikey=${API_KEY}`;
-                const searchResponse = await fetch(searchUrl);
-                const searchData = await searchResponse.json();
-
-                // 検索結果の中から日本の市場（TYO）のものをフィルタリング
-                const japaneseResults = searchData.bestMatches.filter(match => match['4. region'] === 'Japan');
-
-                if (japaneseResults.length === 0) {
-                    resultsContainer.innerHTML = '<p>該当する日本の会社が見つかりませんでした。</p>';
-                    return;
-                }
-
-                // 複数の候補を並列で処理
-                const companyPromises = japaneseResults.map(company => fetchCompanyData(company));
-                await Promise.all(companyPromises);
-
-            } catch (error) {
-                console.error('Error:', error);
-                resultsContainer.innerHTML = '<p>データの取得中にエラーが発生しました。</p>';
-            } finally {
-                loader.style.display = 'none'; // ローディング非表示
-            }
+    
+<script>
+    // ...
+    
+    async function searchCompany() {
+        // 例として証券コードで検索する仕様に変更
+        const code = document.getElementById('company-input').value.trim();
+        if (!code) {
+            alert('証券コードを入力してください。');
+            return;
         }
 
-        async function fetchCompanyData(companyInfo) {
-            const symbol = companyInfo['1. symbol']; // 証券コード (例: 7203.T)
+        resultsContainer.innerHTML = '';
+        loader.style.display = 'block';
 
-            // APIから複数の情報を並行して取得
-            const overviewPromise = fetch(`https://www.alphavantage.co/query?function=OVERVIEW&symbol=${symbol}&apikey=${API_KEY}`).then(res => res.json());
-            const quotePromise = fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${API_KEY}`).then(res => res.json());
+        try {
+            // 自分たちが作ったバックエンドサーバーにデータをリクエストする
+            // 例: http://127.0.0.1:5000/data/7203 (トヨタ自動車)
+            const response = await fetch(`/data/${code}`);
+            const data = await response.json();
 
-            const [overview, quoteData] = await Promise.all([overviewPromise, quotePromise]);
-            const quote = quoteData['Global Quote'];
+            if (data.error) {
+                throw new Error(data.error);
+            }
 
-            // 取得したデータを表示
-            displayData(overview, quote);
+            displayData(data); // 取得したデータを画面に表示する
+
+        } catch (error) {
+            console.error('Error:', error);
+            resultsContainer.innerHTML = '<p>データの取得中にエラーが発生しました。</p>';
+        } finally {
+            loader.style.display = 'none';
         }
+    }
 
-        function displayData(overview, quote) {
-            // データが存在しない場合のデフォルト値
-            const na = '---';
-
-            // 必要なデータを抽出
-            const companyName = overview.Name || na;
-            const ticker = overview.Symbol || na;
-            const market = overview.Exchange ? overview.Exchange.replace('TYO', '東証') : na;
-            const price = quote ? parseFloat(quote['05. price']).toLocaleString() : na;
-            const sales = overview.RevenueTTM ? (parseInt(overview.RevenueTTM) / 100000000).toFixed(2) + ' 億円' : na;
-            const eps = overview.EPS || na;
-            const dividend = overview.DividendPerShare || na;
-            const dividendYield = overview.DividendYield ? (parseFloat(overview.DividendYield) * 100).toFixed(2) + ' %' : na;
-            const pbr = overview.PriceToBookRatio || na;
-            const roe = overview.ReturnOnEquityTTM ? (parseFloat(overview.ReturnOnEquityTTM) * 100).toFixed(2) + ' %' : na;
-            const bps = overview.BookValuePerShare || na;
-
-            // HTMLカードを生成
-            const card = `
-                <div class="company-card">
-                    <div class="company-header">
-                        <span class="company-name">${companyName}</span>
-                        <span class="company-code">${ticker} (${market})</span>
-                    </div>
-                    <div class="price">¥ ${price}</div>
-                    <div class="data-grid">
-                        <div class="data-item">
-                            <span class="data-label">売上高 (TTM)</span>
-                            <span class="data-value">${sales}</span>
-                        </div>
-                        <div class="data-item">
-                            <span class="data-label">EPS (一株利益)</span>
-                            <span class="data-value">${eps}</span>
-                        </div>
-                        <div class="data-item">
-                            <span class="data-label">BPS (一株純資産)</span>
-                            <span class="data-value">${bps}</span>
-                        </div>
-                        <div class="data-item">
-                            <span class="data-label">ROE</span>
-                            <span class="data-value">${roe}</span>
-                        </div>
-                         <div class="data-item">
-                            <span class="data-label">PBR</span>
-                            <span class="data-value">${pbr}</span>
-                        </div>
-                        <div class="data-item">
-                            <span class="data-label">配当利回り</span>
-                            <span class="data-value">${dividendYield}</span>
-                        </div>
-                    </div>
+    function displayData(data) {
+        // バックエンドから受け取ったデータを元にHTMLを組み立てる
+        // （この部分のロジックは前回とほぼ同じ）
+        const card = `
+            <div class="company-card">
+                <div class="company-header">
+                    <span class="company-name">${data.companyName}</span>
+                    <span class="company-code">${data.code} (${data.market})</span>
                 </div>
-            `;
-            // 注意: APIでは直近の経常利益や来期予想の直接的な取得が難しい場合があります。
-            // 売上高はTTM(Trailing Twelve Months/過去12ヶ月)の値を表示しています。
-
-            resultsContainer.innerHTML += card;
-        }
-    </script>
+                <div class="price">¥ ${data.price.toLocaleString()}</div>
+                <div class="data-grid">
+                    <div class="data-item">
+                        <span class="data-label">売上高(前期)</span>
+                        <span class="data-value">${(data.sales_latest / 100000000).toFixed(2)} 億円</span>
+                    </div>
+                    <div class="data-item">
+                        <span class="data-label">EPS (一株利益)</span>
+                        <span class="data-value">${data.eps}</span>
+                    </div>
+                    // ... 他のデータ項目も同様に表示 ...
+                </div>
+            </div>
+        `;
+        resultsContainer.innerHTML = card;
+    }
+</script> 
 </body>
 </html>
