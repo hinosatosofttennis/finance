@@ -156,10 +156,14 @@ def stock_data_endpoint():
 def multiple_stock_data_endpoint():
     """複数銘柄を並列処理で高速取得"""
     codes = request.args.get('codes')
+    target_prices = request.args.get('target_prices', '')  # 目標株価データ
+    
     if not codes:
         return jsonify({"error": "証券コードが指定されていません"}), 400
     
     code_list = [code.strip() for code in codes.split(',') if code.strip()]
+    target_price_list = [price.strip() for price in target_prices.split(',') if target_prices]
+    
     if len(code_list) > 20:  # 負荷制限
         return jsonify({"error": "一度に取得できる銘柄数は20件までです"}), 400
     
@@ -167,15 +171,25 @@ def multiple_stock_data_endpoint():
     
     # 並列処理で複数銘柄を同時取得
     with ThreadPoolExecutor(max_workers=5) as executor:  # 同時実行数を制限
-        future_to_code = {executor.submit(get_stock_data, code): code for code in code_list}
+        future_to_code = {executor.submit(get_stock_data, code): (code, i) for i, code in enumerate(code_list)}
         
         for future in as_completed(future_to_code):
-            code = future_to_code[future]
+            code, index = future_to_code[future]
             try:
                 data = future.result(timeout=30)  # タイムアウト設定
+                # 目標株価を追加
+                if index < len(target_price_list) and target_price_list[index]:
+                    data['targetPrice'] = target_price_list[index]
+                else:
+                    data['targetPrice'] = ''
                 results.append(data)
             except Exception as e:
-                results.append({"error": str(e), "code": code})
+                result_data = {"error": str(e), "code": code}
+                if index < len(target_price_list) and target_price_list[index]:
+                    result_data['targetPrice'] = target_price_list[index]
+                else:
+                    result_data['targetPrice'] = ''
+                results.append(result_data)
     
     return jsonify(results)
 
