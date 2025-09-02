@@ -85,6 +85,13 @@
         .error-row td { color: red; text-align: center; }
         .change-plus { color: #00b300; }
         .change-minus { color: #ff3333; }
+        .target-price-input {
+            width: 80px;
+            text-align: right;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 4px;
+        }
     </style>
 </head>
 <body>
@@ -191,20 +198,50 @@
             document.querySelectorAll('.sheet-tab').forEach(tab => {
                 tab.classList.toggle('active', tab.dataset.sheetId == sheetId);
             });
-            const savedData = localStorage.getItem(`stock_sheet_${sheetId}`) || '';
-            companyInput.value = savedData;
+            
+            // 保存されたデータを読み込み
+            const savedData = JSON.parse(localStorage.getItem(`stock_sheet_${sheetId}`) || '[]');
+            
+            // 証券コードのみをテキスト欄に表示
+            if (Array.isArray(savedData) && savedData.length > 0 && savedData[0].code) {
+                // 新形式（オブジェクト配列）
+                companyInput.value = savedData.map(item => item.code).join('\n');
+            } else {
+                // 旧形式（文字列）
+                companyInput.value = savedData;
+            }
+            
             searchCompanies();
         }
 
         function saveCurrentSheet() {
+            // 現在表示されている表から「目標株価」の情報を取得
+            const currentTargetPrices = {};
+            tableBody.querySelectorAll('tr').forEach(row => {
+                const code = row.dataset.code;
+                const input = row.querySelector('.target-price-input');
+                if (code && input) {
+                    currentTargetPrices[code] = input.value.trim();
+                }
+            });
+
+            // テキスト入力欄から証券コードを取得
             const rawInput = companyInput.value.trim();
             const codes = [...new Set(rawInput.split(/[,\s\n　]+/).filter(code => /^\d{4}$/.test(code)))];
 
             if (codes.length > 10) {
-                alert('1シートに登録できる銘柄は10件までです。'); return;
+                alert('1シートに登録できる銘柄は10件までです。'); 
+                return;
             }
-            localStorage.setItem(`stock_sheet_${activeSheet}`, codes.join('\n'));
-            alert(`「${sheetNames[activeSheet - 1]}」に ${codes.length} 件の銘柄を保存しました。`);
+            
+            // 保存用データを作成（目標株価も含む）
+            const sheetData = codes.map(code => ({
+                code: code,
+                targetPrice: currentTargetPrices[code] || ''
+            }));
+
+            localStorage.setItem(`stock_sheet_${activeSheet}`, JSON.stringify(sheetData));
+            alert(`「${sheetNames[activeSheet - 1]}」に ${sheetData.length} 件の銘柄を保存しました。`);
         }
         
         async function searchCompanies() {
@@ -215,17 +252,31 @@
             const codes = [...new Set(rawInput.split(/[,\s\n　]+/).filter(code => /^\d{4}$/.test(code)))];
             if (codes.length === 0) {
                 tableHead.innerHTML = '';
-                tableBody.innerHTML = `<tr><td colspan="15" style="text-align:center;">有効な証券コードがありません。</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="16" style="text-align:center;">有効な証券コードがありません。</td></tr>`;
                 return;
             }
 
             loader.style.display = 'block';
             tableHead.innerHTML = ''; tableBody.innerHTML = '';
-            const serviceUrl = 'https://finance-1-wf97.onrender.com'; // TODO: あなたのRender URLに書き換えてください
+            const serviceUrl = 'https://your-service-name.onrender.com'; // TODO: あなたのRender URLに書き換えてください
             
+            // 保存された目標株価データを取得
+            const savedData = JSON.parse(localStorage.getItem(`stock_sheet_${activeSheet}`) || '[]');
+            const targetPrices = codes.map(code => {
+                if (Array.isArray(savedData) && savedData.length > 0) {
+                    const item = savedData.find(item => item.code === code);
+                    return item ? item.targetPrice : '';
+                }
+                return '';
+            });
+
             try {
-                // 複数銘柄並列取得の新しいエンドポイントを使用
-                const response = await fetch(`${serviceUrl}/multiple-stock-data?codes=${codes.join(',')}`);
+                // 目標株価データも一緒に送信
+                const codesParam = codes.join(',');
+                const targetPricesParam = targetPrices.join(',');
+                const url = `${serviceUrl}/multiple-stock-data?codes=${codesParam}&target_prices=${targetPricesParam}`;
+                
+                const response = await fetch(url);
                 const results = await response.json();
                 
                 loader.style.display = 'none';
@@ -233,7 +284,7 @@
             } catch (error) {
                 console.error('Error fetching stock data:', error);
                 loader.style.display = 'none';
-                tableBody.innerHTML = `<tr><td colspan="15" style="text-align:center;">データ取得中にエラーが発生しました。</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="16" style="text-align:center;">データ取得中にエラーが発生しました。</td></tr>`;
             }
         }
 
@@ -244,6 +295,7 @@
                 <tr>
                     <th class="align-left">銘柄名</th>
                     <th class="align-left">コード</th>
+                    <th class="align-right">目標株価</th>
                     <th class="align-left">市場</th>
                     <th class="align-right">現値(円)</th>
                     <th class="align-right">前日比(値幅)</th>
@@ -263,8 +315,9 @@
                 const row = document.createElement('tr');
                 if (data.error) {
                     row.classList.add('error-row');
-                    row.innerHTML = `<td colspan="15">コード: ${data.code} - ${data.error}</td>`;
+                    row.innerHTML = `<td colspan="16">コード: ${data.code} - ${data.error}</td>`;
                 } else {
+                    row.dataset.code = data.code;
                     const change = data.change.toFixed(2);
                     const changePercent = data.changePercent.toFixed(2);
                     const changeClass = change > 0 ? 'change-plus' : (change < 0 ? 'change-minus' : '');
@@ -272,6 +325,7 @@
                     row.innerHTML = `
                         <td class="align-left">${data.companyName}</td>
                         <td class="align-left">${data.code}</td>
+                        <td class="align-right"><input type="number" class="target-price-input" value="${data.targetPrice || ''}" placeholder="目標株価"></td>
                         <td class="align-left">${data.market}</td>
                         <td class="align-right">${data.price}</td>
                         <td class="align-right ${changeClass}">${change > 0 ? '+' : ''}${change}</td>
