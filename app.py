@@ -124,7 +124,7 @@ def get_stock_data(ticker_symbol):
         'dividendYield': formatted_yield,
         'pbr': f"{stock_info.get('priceToBook', 0):.2f}",
         'roe': f"{(stock_info.get('returnOnEquity', 0) * 100):.2f} %",
-        'bps': f"{stock_info.get('bookValue', '---'):.1f}",
+        'bps': f"{stock_info.get('bookValue', '---'):,.1f}",
     }
     return data
 
