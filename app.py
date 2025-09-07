@@ -114,7 +114,7 @@ def get_stock_data(ticker_symbol):
         'code': ticker_symbol,
         'market': stock_info.get('exchange', '').replace('JPX', '東証').replace('FSE', '福証').replace('SSE', '札証').replace('NAG', '名証'),
         'price': f"{current_price:,}",
-        'change': change_value,  # 前日比(値幅)
+        'change': f"{change_value:,.1f}",  # 前日比(値幅)
         'changePercent': change_percent,  # 前日比(%)
         'marketCap': format_yen(stock_info.get('marketCap')),
         'pretaxIncome': format_yen(pretax_income),
