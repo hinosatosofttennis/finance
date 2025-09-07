@@ -192,16 +192,16 @@
             tableHead.innerHTML = `
                 <tr>
                     <th class="align-left">銘 柄 名</th><th class="align-center">コード</th>
-                    <th class="align-right">登録株価</th>
-                    <th class="align-right">株価(円)</th>
-                    <th class="align-right">前日比</th>
-                    <th class="align-right">前日比<br>(%)</th>
+                    <th class="align-center">登録株価</th>
+                    <th class="align-center">株価(円)</th>
+                    <th class="align-center">前日比</th>
+                    <th class="align-center">前日比<br>(%)</th>
                     <th class="align-center">市場</th>
-                    <th class="align-right">時価総額</th><th class="align-right">売 上 高</th>
-                    <th class="align-right">税前利益</th><th class="align-right">当期利益</th>
-                    <th class="align-right">EPS(円)</th><th class="align-right">BPS(円)</th>
-                    <th class="align-right">PBR(倍)</th><th class="align-right">ROE(%)</th>
-                    <th class="align-right">配当利回り</th>
+                    <th class="align-center">時価総額</th><th class="align-center">売 上 高</th>
+                    <th class="align-center">税前利益</th><th class="align-center">当期利益</th>
+                    <th class="align-center">EPS(円)</th><th class="align-center">BPS(円)</th>
+                    <th class="align-center">PBR(倍)</th><th class="align-center">ROE(%)</th>
+                    <th class="align-center">配当利回り</th>
                 </tr>
             `;
             results.forEach(data => {
@@ -219,12 +219,12 @@
                     const targetPrice = savedItem ? savedItem.targetPrice : '';
 
                     row.innerHTML = `
-                        <td class="align-left">${data.companyName}</td><td class="align-left">${data.code}</td>
+                        <td class="align-left">${data.companyName}</td><td class="align-center">${data.code}</td>
                         <td class="align-right"><input type="number" class="target-price-input" value="${targetPrice}" placeholder="目標株価"></td>
                         <td class="align-right">${data.price}</td>
                         <td class="align-right ${changeClass}">${change > 0 ? '+' : ''}${change}</td>
                         <td class="align-right ${changeClass}">${changePercent > 0 ? '+' : ''}${changePercent}%</td>
-                        <td class="align-left">${data.market}</td>
+                        <td class="align-center">${data.market}</td>
                         <td class="align-right">${data.marketCap}</td><td class="align-right">${data.sales_latest}</td>
                         <td class="align-right">${data.pretaxIncome}</td><td class="align-right">${data.netIncome}</td>
                         <td class="align-right">${data.eps}</td><td class="align-right">${data.bps}</td>
