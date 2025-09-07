@@ -61,7 +61,8 @@ def get_japanese_name_from_yahoo_jp(ticker_with_suffix):
 def format_yen(value):
     """数値を億円・兆円単位の文字列にフォーマットする"""
     if not isinstance(value, (int, float)): return '---'
-    if abs(value) >= 1000000000000: return  f"{(value / 100000000):,.1f} 億円"
+    if abs(value) >= 1000000000000: return f"{(value / 1000000000000):,.2f} 兆円"
+    return f"{(value / 100000000):,.1f} 億円"
 
 def get_stock_data(ticker_symbol):
     """
