@@ -103,7 +103,7 @@ def get_stock_data(ticker_symbol):
     # 前日比データの取得
     current_price = stock_info.get('currentPrice', 0)
     previous_close = stock_info.get('previousClose', current_price)
-    change_value = f"{(current_price - previous_close if current_price and previous_close else 0):,.2f}"
+    change_value = current_price - previous_close if current_price and previous_close else 0
     change_percent = (change_value / previous_close * 100) if previous_close and previous_close != 0 else 0
     
     raw_yield = stock_info.get('dividendYield', 0) or 0
