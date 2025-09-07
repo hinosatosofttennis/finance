@@ -108,6 +108,8 @@ def get_stock_data(ticker_symbol):
     
     raw_yield = stock_info.get('dividendYield', 0) or 0
     formatted_yield = f"{(raw_yield * 100):.2f} %" if 0 < raw_yield < 1 else f"{raw_yield:.2f} %"
+    # まず 'bookValue' の値を取得する
+　　　book_value = stock_info.get('bookValue')
 
     data = {
         'companyName': japanese_name or stock_info.get('longName', '---'),
@@ -124,7 +126,7 @@ def get_stock_data(ticker_symbol):
         'dividendYield': formatted_yield,
         'pbr': f"{stock_info.get('priceToBook', 0):.2f}",
         'roe': f"{(stock_info.get('returnOnEquity', 0) * 100):.2f} %",
-        'bps': stock_info.get('bookValue', '---'),
+        'bps': f"{stock_info.get('bookValue', '---'):.1f}",
     }
     return data
 
