@@ -12,7 +12,7 @@
         .sheet-tab { padding: 8px 12px; border: 1px solid #ccc; background-color: #f0f0f0; cursor: pointer; border-radius: 5px; font-size: 1.6em; transition: background-color 0.2s, color 0.2s; user-select: none; }
         .sheet-tab.active { background-color: #007bff; color: white; border-color: #007bff; }
         .sheet-tab input { font-size: 1.6em; border: 1px solid #007bff; padding: 2px; border-radius: 3px; width: 80px; }
-        #company-input { width: 100%; box-sizing: border-box; padding: 10px; font-size: 1.6em; border: 1px solid #ccc; border-radius: 5px; min-height: 120px; font-family: 'Meiryo', 'メイリオ', sans-serif; }
+        #company-input { width: 100%; box-sizing: border-box; padding: 10px; font-size: 1.6em; border: 1px solid #ccc; border-radius: 5px; min-height: 80px; font-family: 'Meiryo', 'メイリオ', sans-serif; }
         .button-group { display: flex; gap: 10px; margin-top: 10px; }
         #save-button, #search-button { flex-grow: 1; padding: 12px 15px; font-size: 1.6em; color: white; border: none; border-radius: 5px; cursor: pointer; }
         #save-button { background-color: #28a745; }
@@ -22,7 +22,7 @@
         #results-table { width: 100%; border-collapse: collapse; font-size: 1.6em; }
         #results-table th, #results-table td { padding: 10px; border-bottom: 1px solid #eee; white-space: nowrap; }
         #results-table th { background-color: #f8f9fa; font-weight: bold; }
-        #results-table td:first-child, #results-table th:first-child { position: sticky; left: 0; background-color: white; border-right: 1px solid #eee; }
+        #results-table td:first-child, #results-table th:first-child { position: sticky; left: 0;width: 50px;max-width: 50px;overflow-x: auto; background-color: white; border-right: 1px solid #eee; }
         #results-table th:first-child { background-color: #f8f9fa; }
         .align-left { text-align: left; }
         .align-right { text-align: right; }
